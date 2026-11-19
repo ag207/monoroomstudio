@@ -1,0 +1,257 @@
+/* 디자인 토큰: DESIGN-notion.md + 판정 색은 PRD 3.5 */
+:root {
+  --canvas: #ffffff;
+  --canvas-soft: #f6f5f4;
+  --ink: #000000;
+  --ink-2: #31302e;
+  --ink-muted: #615d59;
+  --hairline: #e6e6e6;
+  --field-border: #c9c6c2;
+  --primary: #0075de;
+  --primary-active: #005bab;
+
+  --problem-fg: #a11b1b;
+  --problem-bg: #fce4e4;
+  --warn-fg: #8a5a00;
+  --warn-bg: #fff3d6;
+  --pass-fg: #1e6b3a;
+  --pass-bg: #e3f3e8;
+
+  --r-xs: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 9999px;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  --shadow-1: rgba(0, 0, 0, 0.02) 0 0.8px 2.9px, rgba(0, 0, 0, 0.027) 0 2px 7.8px, rgba(0, 0, 0, 0.04) 0 4px 18px;
+  --shadow-2: rgba(0, 0, 0, 0.04) 0 4px 18px, rgba(0, 0, 0, 0.05) 0 23px 52px;
+  --font: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--canvas-soft);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* 카드 */
+.card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+}
+
+/* 버튼 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-5);
+  border-radius: var(--r-full);
+  border: 1px solid transparent;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:active:not(:disabled) {
+  background: var(--primary-active);
+}
+.btn-secondary {
+  background: var(--canvas);
+  border-color: var(--hairline);
+  box-shadow: var(--shadow-1);
+}
+.btn-utility {
+  min-height: 40px;
+  padding: var(--s-1) 14px;
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  border-color: var(--hairline);
+}
+.btn-utility:active:not(:disabled) {
+  background: var(--canvas-soft);
+}
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-icon {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+}
+.btn-danger {
+  color: var(--problem-fg);
+}
+
+/* 입력 칸 */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.field label,
+.field-label {
+  font-size: 14px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.field input,
+.field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  background: var(--canvas);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-xs);
+}
+.field input[aria-invalid='true'] {
+  border-color: var(--problem-fg);
+}
+.field-suffix {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+.field-error {
+  color: var(--problem-fg);
+  font-size: 13px;
+}
+
+/* 버튼 묶음 선택 (벽, 경첩) */
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+.segmented button {
+  flex: 1 1 0;
+  min-width: 56px;
+  min-height: 40px;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  cursor: pointer;
+}
+.segmented button[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 판정 배지 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.badge-problem {
+  color: var(--problem-fg);
+  background: var(--problem-bg);
+}
+.badge-warn {
+  color: var(--warn-fg);
+  background: var(--warn-bg);
+  border-style: dashed;
+}
+.badge-pass {
+  color: var(--pass-fg);
+  background: var(--pass-bg);
+}
+
+.muted {
+  color: var(--ink-muted);
+}
+.small {
+  font-size: 13px;
+}

@@ -1,0 +1,55 @@
+/* 헤더와 단계 표시 */
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.steps {
+  display: flex;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--field-border);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.steps li[aria-current='step'] {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.steps li[aria-current='step'] .step-num {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
