@@ -6,7 +6,7 @@ import { LIMITS, PRESETS } from '../domain/constants';
 import type { Furniture } from '../domain/types';
 import { formatPct } from '../domain/text';
 import { useApp } from '../state/AppContext';
-import { furnitureSizeError, nameError } from '../state/validate';
+import { furnitureSizeError, heightError, nameError } from '../state/validate';
 import { ShareDialog } from './ShareDialog';
 import s from './Layout.module.css';
 
@@ -17,9 +17,10 @@ function CustomForm({ disabled }: { disabled: boolean }) {
   const [name, setName] = useState('');
   const [w, setW] = useState(NaN);
   const [h, setH] = useState(NaN);
+  const [ht, setHt] = useState(NaN);
   const [nameTouched, setNameTouched] = useState(false);
   const nErr = nameError(name);
-  const ok = !nErr && !furnitureSizeError(w) && !furnitureSizeError(h);
+  const ok = !nErr && !furnitureSizeError(w) && !furnitureSizeError(h) && !heightError(ht);
   return (
     <form
       className={s.custom}
@@ -28,10 +29,11 @@ function CustomForm({ disabled }: { disabled: boolean }) {
       onSubmit={(e) => {
         e.preventDefault();
         if (!ok || disabled) return;
-        dispatch({ type: 'add', name, w, h });
+        dispatch({ type: 'add', name, w, h, ht: Number.isNaN(ht) ? null : ht });
         setName('');
         setW(NaN);
         setH(NaN);
+        setHt(NaN);
         setNameTouched(false);
       }}
     >
@@ -52,6 +54,14 @@ function CustomForm({ disabled }: { disabled: boolean }) {
         <NumberField id="custom-w" label="가로" value={w} onChange={setW} error={furnitureSizeError(w)} />
         <NumberField id="custom-h" label="세로" value={h} onChange={setH} error={furnitureSizeError(h)} />
       </div>
+      <NumberField
+        id="custom-ht"
+        label="높이 (선택)"
+        value={ht}
+        onChange={setHt}
+        error={heightError(ht)}
+        placeholder="모르면 비워 두세요"
+      />
       <button type="submit" className="btn btn-utility" disabled={!ok || disabled}>
         추가
       </button>
@@ -66,6 +76,10 @@ function SelectedCard({ f }: { f: Furniture }) {
   const resizeH = useCallback((h: number) => dispatch({ type: 'resize', id: f.id, w: f.w, h }), [dispatch, f.id, f.w]);
   const moveX = useCallback((x: number) => dispatch({ type: 'move', id: f.id, x, y: f.y }), [dispatch, f.id, f.y]);
   const moveY = useCallback((y: number) => dispatch({ type: 'move', id: f.id, x: f.x, y }), [dispatch, f.id, f.x]);
+  const setHt = useCallback(
+    (ht: number) => dispatch({ type: 'setHeight', id: f.id, ht: Number.isNaN(ht) ? null : ht }),
+    [dispatch, f.id],
+  );
   return (
     <section className={`card ${s.selected}`} aria-labelledby="sel-title">
       <div className={s.selectedHead}>
@@ -80,6 +94,15 @@ function SelectedCard({ f }: { f: Furniture }) {
         <DraftNumberField id="sel-x" label="위치 X (왼쪽 벽에서)" committed={f.x} validate={anyInt} onCommit={moveX} />
         <DraftNumberField id="sel-y" label="위치 Y (위쪽 벽에서)" committed={f.y} validate={anyInt} onCommit={moveY} />
       </div>
+      <DraftNumberField
+        id="sel-ht"
+        label="높이 (바닥에서 윗면까지)"
+        committed={f.ht ?? NaN}
+        validate={heightError}
+        onCommit={setHt}
+        placeholder="모르면 비워 두세요"
+        hint="창틀보다 낮으면 창문 앞에 두어도 경고하지 않아요."
+      />
       <div className={s.row}>
         <button type="button" className="btn btn-utility" onClick={() => dispatch({ type: 'rotate', id: f.id })}>
           ↻ 90° 회전
@@ -119,7 +142,7 @@ export function Layout() {
                   type="button"
                   className={`btn btn-utility ${s.preset}`}
                   disabled={full}
-                  onClick={() => dispatch({ type: 'add', name: p.name, w: p.w, h: p.h })}
+                  onClick={() => dispatch({ type: 'add', name: p.name, w: p.w, h: p.h, ht: p.ht })}
                 >
                   <strong>{p.name}</strong>
                   <span className="muted small">

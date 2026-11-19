@@ -5,6 +5,7 @@ import { checkOverlap } from './r2-overlap';
 import { checkDoor } from './r3-door';
 import { findAisleGaps } from './r4-aisle';
 import { checkWindow } from './r5-window';
+import { checkCasement } from './r6-casement';
 import { freeAreaPct } from './area';
 
 const RANK: Record<Level, number> = { pass: 0, warn: 1, problem: 2 };
@@ -20,6 +21,7 @@ export function evaluate(room: Room, furniture: Furniture[]): Evaluation {
       ...checkOverlap(f, furniture),
       checkDoor(room, f),
       checkWindow(room, f),
+      checkCasement(room, f),
     ].filter((r): r is Reason => r !== null);
   }
 

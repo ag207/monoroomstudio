@@ -1,13 +1,14 @@
 import { FloorPlan } from '../components/FloorPlan';
 import { NumberField } from '../components/NumberField';
-import { LIMITS, WALL_LABEL } from '../domain/constants';
-import type { Door, Room, RoomWindow, Wall } from '../domain/types';
+import { LIMITS, WALL_LABEL, WINDOW_KIND_LABEL } from '../domain/constants';
+import type { Door, Room, RoomWindow, Wall, WindowKind } from '../domain/types';
 import { formatPct } from '../domain/text';
 import { useApp } from '../state/AppContext';
 import { validateRoom, type Errors } from '../state/validate';
 import s from './RoomSetup.module.css';
 
 const WALLS: Wall[] = ['top', 'bottom', 'left', 'right'];
+const WINDOW_KINDS: WindowKind[] = ['sliding', 'casement', 'other'];
 
 /** 미리보기에는 오류 없는 부분만 그린다 */
 function previewRoom(room: Room, e: Errors) {
@@ -131,12 +132,32 @@ export function RoomSetup() {
                     ×
                   </button>
                 </div>
-                <div className="segmented" role="group" aria-label={`창문 ${i + 1} 벽`}>
-                  {WALLS.map((w) => (
-                    <button key={w} type="button" aria-pressed={win.wall === w} onClick={() => setWin(win.id, { wall: w })}>
-                      {WALL_LABEL[w]}
-                    </button>
-                  ))}
+                <div className="field">
+                  <span className="field-label" id={`win-${win.id}-wall-label`}>
+                    창문이 있는 벽
+                  </span>
+                  <div className="segmented" role="group" aria-label={`창문 ${i + 1} 벽`}>
+                    {WALLS.map((w) => (
+                      <button key={w} type="button" aria-pressed={win.wall === w} onClick={() => setWin(win.id, { wall: w })}>
+                        {WALL_LABEL[w]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="field">
+                  <span className="field-label" id={`win-${win.id}-kind-label`}>
+                    창문 종류
+                  </span>
+                  <div className="segmented" role="group" aria-label={`창문 ${i + 1} 종류`}>
+                    {WINDOW_KINDS.map((k) => (
+                      <button key={k} type="button" aria-pressed={win.kind === k} onClick={() => setWin(win.id, { kind: k })}>
+                        {WINDOW_KIND_LABEL[k]}
+                      </button>
+                    ))}
+                  </div>
+                  {win.kind === 'casement' && (
+                    <p className="muted small">방 안쪽으로 열리는 범위(창 폭의 절반)를 막는 가구는 주의로 표시돼요.</p>
+                  )}
                 </div>
                 <div className={s.row}>
                   <NumberField
@@ -154,6 +175,15 @@ export function RoomSetup() {
                     onChange={(width) => setWin(win.id, { width })}
                   />
                 </div>
+                <NumberField
+                  id={`win-${win.id}-sill`}
+                  label="창틀 높이 (바닥에서 창 아래까지)"
+                  value={win.sill ?? NaN}
+                  error={errors[`win.${win.id}.sill`]}
+                  placeholder="예: 90"
+                  hint="비워 두면 '모름'으로 보고, 창문 앞 가구는 가릴 수 있다고만 알려 드려요. 바닥까지 내려오는 창은 0."
+                  onChange={(n) => setWin(win.id, { sill: Number.isNaN(n) ? null : n })}
+                />
               </fieldset>
             ))}
             <button

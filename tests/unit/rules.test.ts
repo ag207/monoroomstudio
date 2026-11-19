@@ -129,9 +129,62 @@ describe('R5 창문 가림', () => {
     expect(messages(r, 'a')).toContain('창문을 가릴 수 있어요');
   });
 
+  it('높이를 모르면 가릴 수 있다고 안내 (예시 방 창틀 90cm, 가구 높이 모름)', () => {
+    const r = evaluate(room, [f('a', '수납장', 280, 160, 40, 80)]);
+    expect(r.verdicts.a.reasons.find((x) => x.rule === 'R5')!.fix).toContain('높이를 넣으면');
+  });
+
+  it('가구가 창틀 이하이면 경고 없음, 높으면 가려요로 확정', () => {
+    const low = evaluate(room, [{ ...f('a', '수납장', 280, 160, 40, 80), ht: 80 }]);
+    expect(low.verdicts.a.reasons.some((x) => x.rule === 'R5')).toBe(false);
+    expect(low.verdicts.a.level).toBe('pass');
+
+    const exact = evaluate(room, [{ ...f('a', '수납장', 280, 160, 40, 80), ht: 90 }]);
+    expect(exact.verdicts.a.reasons.some((x) => x.rule === 'R5')).toBe(false);
+
+    const high = evaluate(room, [{ ...f('a', '옷장', 260, 160, 60, 100), ht: 200 }]);
+    const reason = high.verdicts.a.reasons.find((x) => x.rule === 'R5')!;
+    expect(reason.message).toBe('창문을 가려요');
+    expect(reason.fix).toContain('가구 높이 200cm가 창틀 90cm보다 높아요');
+  });
+
   it('10cm보다 멀거나 창문 범위 밖이면 경고 없음', () => {
     expect(evaluate(room, [f('a', '수납장', 260, 160, 40, 80)]).verdicts.a.reasons.some((x) => x.rule === 'R5')).toBe(false);
     expect(evaluate(room, [f('a', '수납장', 280, 0, 40, 80)]).verdicts.a.reasons.some((x) => x.rule === 'R5')).toBe(false);
+  });
+});
+
+describe('R6 여닫이 창 열림 막힘', () => {
+  // 위 벽, 100~220 위치에 폭 120 여닫이 창 → 열림 영역 (100, 0, 120, 60)
+  const casement: Room = { ...noWindow, windows: [{ id: 'w1', wall: 'top', offset: 100, width: 120, kind: 'casement' }] };
+
+  it('열림 영역과 겹치면 주의와 띄울 거리 안내', () => {
+    const r = evaluate(casement, [f('a', '책상', 100, 30, 120, 60)]);
+    expect(r.verdicts.a.level).toBe('warn');
+    const reason = r.verdicts.a.reasons.find((x) => x.rule === 'R6')!;
+    expect(reason.message).toBe('여닫이 창 열림 범위를 막아요');
+    expect(reason.fix).toContain('60cm 이상 띄워 보세요');
+  });
+
+  it('가구가 창틀 이하이면 창이 위로 열리므로 경고 없음, 높으면 주의', () => {
+    const withSill: Room = { ...casement, windows: [{ ...casement.windows[0], sill: 90 }] };
+    const low = evaluate(withSill, [{ ...f('a', '책상', 100, 30, 120, 60), ht: 73 }]);
+    expect(low.verdicts.a.reasons.some((x) => x.rule === 'R6')).toBe(false);
+    const high = evaluate(withSill, [{ ...f('a', '옷장', 100, 30, 120, 60), ht: 200 }]);
+    expect(high.verdicts.a.reasons.find((x) => x.rule === 'R6')!.fix).toContain('창틀보다 낮은 가구');
+  });
+
+  it('열림 영역 경계에 맞닿기만 하면 경고 없음', () => {
+    const r = evaluate(casement, [f('a', '책상', 100, 60, 120, 60)]);
+    expect(r.verdicts.a.reasons.some((x) => x.rule === 'R6')).toBe(false);
+  });
+
+  it('미닫이·기타 창은 R6를 검사하지 않는다', () => {
+    for (const kind of ['sliding', 'other'] as const) {
+      const room2: Room = { ...casement, windows: [{ ...casement.windows[0], kind }] };
+      const r = evaluate(room2, [f('a', '책상', 100, 30, 120, 60)]);
+      expect(r.verdicts.a.reasons.some((x) => x.rule === 'R6')).toBe(false);
+    }
   });
 });
 

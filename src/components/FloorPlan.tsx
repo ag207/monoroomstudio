@@ -41,6 +41,17 @@ function wallPoint(room: Pick<Room, 'w' | 'h'>, wall: Wall, t: number): [number,
 
 const NORMAL: Record<Wall, [number, number]> = { top: [0, 1], bottom: [0, -1], left: [1, 0], right: [-1, 0] };
 
+type Pt = [number, number];
+
+/** 경첩 P를 중심으로 닫힌 끝 Q에서 방 안쪽(n)으로 반지름 r만큼 열리는 부채꼴. R은 열린 끝. */
+function swing(P: Pt, Q: Pt, n: Pt, r: number): { path: string; R: Pt } {
+  const R: Pt = [P[0] + n[0] * r, P[1] + n[1] * r];
+  // y가 아래로 커지는 좌표에서 외적이 양수면 R→Q가 시계 방향
+  const cross = (R[0] - P[0]) * (Q[1] - P[1]) - (R[1] - P[1]) * (Q[0] - P[0]);
+  const sweep = cross > 0 ? 1 : 0;
+  return { R, path: `M ${P[0]} ${P[1]} L ${R[0]} ${R[1]} A ${r} ${r} 0 0 ${sweep} ${Q[0]} ${Q[1]} Z` };
+}
+
 export function FloorPlan(props: FloorPlanProps) {
   const { room, furniture = [], result, selectedId, interactive = false, showLegend = false } = props;
   const fs = Math.max(10, Math.min(28, Math.max(room.w, room.h) * 0.035));
@@ -124,10 +135,29 @@ export function FloorPlan(props: FloorPlanProps) {
       {room.windows?.map((win) => {
         const [x1, y1] = wallPoint(room, win.wall, win.offset);
         const [x2, y2] = wallPoint(room, win.wall, win.offset + win.width);
+        const n = NORMAL[win.wall];
+        const mid = wallPoint(room, win.wall, win.offset + win.width / 2);
+        const half = win.width / 2;
         return (
-          <g key={win.id} pointerEvents="none">
+          <g key={win.id} pointerEvents="none" data-window-kind={win.kind}>
+            {win.kind === 'casement' &&
+              [swing([x1, y1], mid, n, half), swing([x2, y2], mid, n, half)].map((s, i) => (
+                <g key={i}>
+                  <path
+                    d={s.path}
+                    fill={PLAN_COLORS.windowFill}
+                    stroke={PLAN_COLORS.window}
+                    strokeWidth={1}
+                    strokeDasharray="4 3"
+                    vectorEffect={NS}
+                  />
+                </g>
+              ))}
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={PLAN_COLORS.window} strokeWidth={7} vectorEffect={NS} />
-            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#fff" strokeWidth={2} vectorEffect={NS} />
+            {/* 미닫이는 두 짝이 겹친 모양(가운데 흰 선), 기타는 단색 선 */}
+            {win.kind !== 'other' && (
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#fff" strokeWidth={2} vectorEffect={NS} />
+            )}
           </g>
         );
       })}
@@ -195,7 +225,7 @@ export function FloorPlan(props: FloorPlanProps) {
             남은 바닥 {formatPct(result.freeAreaPct)}%
           </text>
           <text x={0} y={room.h + pad * 0.75 + fs * 1.3} fill={PLAN_COLORS.muted} fontSize={fs * 0.7}>
-            격자 1칸 = {LIMITS.gridStep}cm · 파란 부채꼴 = 문 열림 범위 · 하늘색 = 창문
+            격자 1칸 = {LIMITS.gridStep}cm · 파란 부채꼴 = 문 열림 범위 · 하늘색 = 창문(부채꼴은 여닫이)
           </text>
         </g>
       )}
@@ -207,12 +237,7 @@ function DoorMark({ room, door }: { room: Pick<Room, 'w' | 'h'>; door: Room['doo
   const start = wallPoint(room, door.wall, door.offset);
   const end = wallPoint(room, door.wall, door.offset + door.width);
   const [P, Q] = door.hinge === 'left' ? [start, end] : [end, start];
-  const n = NORMAL[door.wall];
-  const R: [number, number] = [P[0] + n[0] * door.width, P[1] + n[1] * door.width];
-  // R→Q 로 경첩을 중심으로 도는 방향. y가 아래로 커지는 좌표에서 외적이 양수면 시계 방향.
-  const cross = (R[0] - P[0]) * (Q[1] - P[1]) - (R[1] - P[1]) * (Q[0] - P[0]);
-  const sweep = cross > 0 ? 1 : 0;
-  const arc = `M ${P[0]} ${P[1]} L ${R[0]} ${R[1]} A ${door.width} ${door.width} 0 0 ${sweep} ${Q[0]} ${Q[1]} Z`;
+  const { path: arc, R } = swing(P, Q, NORMAL[door.wall], door.width);
   return (
     <g pointerEvents="none" data-door="">
       <line x1={start[0]} y1={start[1]} x2={end[0]} y2={end[1]} stroke={PLAN_COLORS.floor} strokeWidth={5} vectorEffect={NS} />
@@ -241,7 +266,7 @@ function Block({ f, fs, verdict, selected, interactive, toCm, onSelect, onMove, 
   const c = VERDICT_COLORS[level];
   const tfs = Math.max(6, Math.min(fs, f.w / 5, f.h / 2.6));
   const inflate = fs * 0.35;
-  const label = `${f.name} ${f.w}×${f.h}cm, 위치 ${f.x}, ${f.y}, 판정 ${LEVEL_LABEL[level]}`;
+  const label = `${f.name} ${f.w}×${f.h}cm${f.ht != null ? `, 높이 ${f.ht}cm` : ''}, 위치 ${f.x}, ${f.y}, 판정 ${LEVEL_LABEL[level]}`;
 
   const onPointerDown = (e: PointerEvent<SVGGElement>) => {
     if (!interactive) return;

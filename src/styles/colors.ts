@@ -14,6 +14,7 @@ export const PLAN_COLORS = {
   floor: '#ffffff',
   paper: '#f6f5f4',
   window: '#62aef0',
+  windowFill: 'rgba(98, 174, 240, 0.12)',
   door: '#0075de',
   doorFill: 'rgba(0, 117, 222, 0.08)',
 } as const;

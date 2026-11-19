@@ -45,6 +45,44 @@ test.describe('화면 1 방 설정', () => {
   });
 });
 
+test('창문 종류: 여닫이를 고르면 열림 부채꼴이 그려지고 막는 가구는 주의', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '원룸 예시 불러오기' }).click();
+  const kind = page.getByRole('group', { name: '창문 1 종류' });
+  await expect(kind.getByRole('button', { name: '미닫이' })).toHaveAttribute('aria-pressed', 'true');
+  await kind.getByRole('button', { name: '여닫이' }).click();
+  await expect(page.locator('[data-window-kind="casement"] path')).toHaveCount(2);
+
+  await page.getByRole('button', { name: '다음: 가구 배치하기' }).click();
+  await addPreset(page, '수납장');
+  await placeSelected(page, 220, 160); // 오른쪽 벽 창(140~260)의 열림 영역(깊이 60) 안
+  // 수납장 기본 높이 80cm는 창틀 90cm 아래라 창이 그 위로 열린다
+  await expect(card(page, '수납장')).not.toContainText('여닫이 창 열림 범위를 막아요');
+  await page.locator('#sel-ht').fill('120');
+  await expect(card(page, '수납장')).toContainText('여닫이 창 열림 범위를 막아요');
+});
+
+test('높이: 창틀보다 낮은 가구는 창문 앞에 두어도 경고 없음, 높이면 가려요', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '원룸 예시 불러오기' }).click();
+  await expect(page.locator('#win-w1-sill')).toHaveValue('90');
+  await page.getByRole('button', { name: '다음: 가구 배치하기' }).click();
+
+  await addPreset(page, '수납장'); // 기본 높이 80cm
+  await expect(page.locator('#sel-ht')).toHaveValue('80');
+  await page.locator('#sel-w').fill('40');
+  await page.locator('#sel-h').fill('80');
+  await placeSelected(page, 280, 160); // 오른쪽 벽 창(140~260) 앞에 붙임
+  await expect(block(page, '수납장')).toHaveAttribute('data-level', 'pass');
+
+  await page.locator('#sel-ht').fill('120');
+  await expect(card(page, '수납장')).toContainText('창문을 가려요');
+  await expect(card(page, '수납장')).toContainText('가구 높이 120cm가 창틀 90cm보다 높아요');
+
+  await page.locator('#sel-ht').fill('');
+  await expect(card(page, '수납장')).toContainText('창문을 가릴 수 있어요');
+});
+
 test.describe('화면 2 가구 배치와 판정', () => {
   test('AC-04·05: 문 막힘 문제가 생기고 옮기면 사라진다', async ({ page }) => {
     await startPlainRoom(page);

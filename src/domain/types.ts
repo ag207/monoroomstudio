@@ -13,11 +13,17 @@ export interface Door {
   hinge: Hinge;
 }
 
+/** 창문 종류: 미닫이(옆으로 밀기), 여닫이(방 안쪽으로 열기), 기타 */
+export type WindowKind = 'sliding' | 'casement' | 'other';
+
 export interface RoomWindow {
   id: string;
   wall: Wall;
   offset: number;
   width: number;
+  kind: WindowKind;
+  /** 바닥에서 창틀(창 아래)까지 높이. 비우면(null) 모름. */
+  sill?: number | null;
 }
 
 export interface Room {
@@ -37,11 +43,14 @@ export interface Rect {
 export interface Furniture extends Rect {
   id: string;
   name: string;
+  /** 가구 높이(바닥에서 윗면까지). 평면의 h(세로)와 다르다. 비우면(null) 모름. */
+  ht?: number | null;
 }
 
 export type Level = 'problem' | 'warn' | 'pass';
 
-export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'OK';
+/** R6(여닫이 창 열림 범위)은 PRD에 없고 나중에 추가한 규칙 */
+export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'OK';
 
 export interface Reason {
   rule: RuleId;

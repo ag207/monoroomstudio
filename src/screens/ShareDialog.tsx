@@ -92,7 +92,7 @@ export function ShareDialog({ result, onClose }: { result: Evaluation; onClose: 
                 <li key={f.id}>
                   <span>{f.name}</span>
                   <span className="muted">
-                    {f.w}×{f.h}cm
+                    {f.w}×{f.h}cm{f.ht != null && ` · 높이 ${f.ht}cm`}
                   </span>
                 </li>
               ))}

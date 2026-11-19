@@ -7,13 +7,16 @@ interface Props {
   onChange: (n: number) => void;
   error?: string | null;
   suffix?: string;
+  placeholder?: string;
+  /** 칸 아래 도움말 (오류가 없을 때) */
+  hint?: string;
 }
 
 const parse = (s: string) => (s.trim() === '' ? NaN : Math.round(Number(s)));
 const show = (n: number) => (Number.isNaN(n) ? '' : String(n));
 
 /** 숫자 입력 칸. 오류는 칸 아래에 보여 주되, 빈칸 오류는 칸을 떠난 뒤에만 보인다. */
-export function NumberField({ id, label, value, onChange, error, suffix = 'cm' }: Props) {
+export function NumberField({ id, label, value, onChange, error, suffix = 'cm', placeholder, hint }: Props) {
   const [touched, setTouched] = useState(false);
   const visible = error && (touched || !Number.isNaN(value));
   return (
@@ -26,17 +29,24 @@ export function NumberField({ id, label, value, onChange, error, suffix = 'cm' }
           inputMode="numeric"
           step={1}
           value={show(value)}
+          placeholder={placeholder}
           aria-invalid={visible ? true : undefined}
-          aria-describedby={visible ? `${id}-err` : undefined}
+          aria-describedby={visible ? `${id}-err` : hint ? `${id}-hint` : undefined}
           onChange={(e) => onChange(parse(e.target.value))}
           onBlur={() => setTouched(true)}
         />
         {suffix && <span className="field-suffix">{suffix}</span>}
       </div>
-      {visible && (
+      {visible ? (
         <p id={`${id}-err`} className="field-error" role="alert">
           {error}
         </p>
+      ) : (
+        hint && (
+          <p id={`${id}-hint`} className="muted small">
+            {hint}
+          </p>
+        )
       )}
     </div>
   );
@@ -52,22 +62,38 @@ export function DraftNumberField({
   committed,
   validate,
   onCommit,
+  placeholder,
+  hint,
 }: {
   id: string;
   label: string;
+  /** 빈칸(NaN)도 값으로 다룬다: 비워 둘 수 있는 칸은 validate가 NaN을 통과시키면 된다 */
   committed: number;
   validate: (n: number) => string | null;
   onCommit: (n: number) => void;
+  placeholder?: string;
+  hint?: string;
 }) {
   const [draft, setDraft] = useState(committed);
   const [prev, setPrev] = useState(committed);
-  if (committed !== prev) {
+  // NaN !== NaN 이므로 Object.is 로 비교한다
+  if (!Object.is(committed, prev)) {
     setPrev(committed);
     setDraft(committed);
   }
   const error = validate(draft);
   useEffect(() => {
-    if (!error && draft !== committed) onCommit(draft);
+    if (!error && !Object.is(draft, committed)) onCommit(draft);
   }, [draft, error, committed, onCommit]);
-  return <NumberField id={id} label={label} value={draft} onChange={setDraft} error={error} />;
+  return (
+    <NumberField
+      id={id}
+      label={label}
+      value={draft}
+      onChange={setDraft}
+      error={error}
+      placeholder={placeholder}
+      hint={hint}
+    />
+  );
 }

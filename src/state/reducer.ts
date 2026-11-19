@@ -21,7 +21,8 @@ export type Action =
   | { type: 'addWindow' }
   | { type: 'removeWindow'; id: string }
   | { type: 'goto'; screen: Screen }
-  | { type: 'add'; name: string; w: number; h: number }
+  | { type: 'add'; name: string; w: number; h: number; ht?: number | null }
+  | { type: 'setHeight'; id: string; ht: number | null }
   | { type: 'move'; id: string; x: number; y: number }
   | { type: 'nudge'; id: string; dx: number; dy: number }
   | { type: 'resize'; id: string; w: number; h: number }
@@ -77,7 +78,7 @@ export function reducer(state: State, action: Action): State {
       return { ...state, room: EXAMPLE_ROOM, linkError: false };
     case 'addWindow': {
       if (state.room.windows.length >= LIMITS.windowsMax) return state;
-      const win = { id: `w${state.nextId}`, wall: 'top' as const, offset: NaN, width: NaN };
+      const win = { id: `w${state.nextId}`, wall: 'top' as const, offset: NaN, width: NaN, kind: 'sliding' as const, sill: null };
       return { ...state, nextId: state.nextId + 1, room: { ...state.room, windows: [...state.room.windows, win] } };
     }
     case 'removeWindow':
@@ -92,7 +93,7 @@ export function reducer(state: State, action: Action): State {
       if (state.furniture.length >= LIMITS.furnitureCountMax) return state;
       const id = `f${state.nextId}`;
       const pos = placeNew(state.room, state.furniture, action.w, action.h);
-      const f: Furniture = { id, name: action.name.trim(), w: action.w, h: action.h, ...pos };
+      const f: Furniture = { id, name: action.name.trim(), w: action.w, h: action.h, ht: action.ht ?? null, ...pos };
       return { ...state, nextId: state.nextId + 1, furniture: [...state.furniture, f], selectedId: id };
     }
     case 'move':
@@ -101,6 +102,8 @@ export function reducer(state: State, action: Action): State {
       return update(state, action.id, (f) => ({ ...f, x: f.x + action.dx, y: f.y + action.dy }));
     case 'resize':
       return update(state, action.id, (f) => ({ ...f, w: action.w, h: action.h }));
+    case 'setHeight':
+      return update(state, action.id, (f) => ({ ...f, ht: action.ht }));
     case 'rotate':
       // 가로·세로를 바꾸고 중심점을 유지한다. 방 안쪽으로 보정하지 않는다 (PRD 4.1).
       return update(state, action.id, (f) => ({

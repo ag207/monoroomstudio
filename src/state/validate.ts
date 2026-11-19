@@ -14,7 +14,22 @@ export const MSG = {
   doorWindow: '문과 창문이 겹쳐요',
   furniture: '20~400cm 사이로 입력해 주세요',
   name: '이름을 1~10자로 입력해 주세요',
+  sill: '창틀 높이는 0~300cm 사이로 입력해 주세요',
+  height: '높이는 10~300cm 사이로 입력해 주세요',
 } as const;
+
+/** 비워 둘 수 있는 높이 값. null·undefined·NaN 은 '모름'. */
+export const isUnknown = (n: number | null | undefined): n is null | undefined => n == null || Number.isNaN(n);
+
+export function sillError(n: number | null | undefined): string | null {
+  if (isUnknown(n)) return null;
+  return isInt(n) && n >= 0 && n <= LIMITS.sillMax ? null : MSG.sill;
+}
+
+export function heightError(n: number | null | undefined): string | null {
+  if (isUnknown(n)) return null;
+  return isInt(n) && n >= LIMITS.heightMin && n <= LIMITS.heightMax ? null : MSG.height;
+}
 
 export const isInt = (n: number) => Number.isInteger(n);
 
@@ -54,6 +69,9 @@ export function validateRoom(room: Room): Errors {
       Math.min(win.offset + win.width, door.offset + door.width) - Math.max(win.offset, door.offset) > 0
     )
       e[ok] = MSG.doorWindow;
+
+    const se = sillError(win.sill);
+    if (se) e[`win.${win.id}.sill`] = se;
   }
   return e;
 }

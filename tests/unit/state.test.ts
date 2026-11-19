@@ -4,7 +4,7 @@ import type { Room } from '../../src/domain/types';
 import { decodeHash, encodeState } from '../../src/share/link';
 import { pngFileName } from '../../src/share/png';
 import { initState, reducer, type State } from '../../src/state/reducer';
-import { MSG, validateRoom } from '../../src/state/validate';
+import { heightError, MSG, validateRoom } from '../../src/state/validate';
 
 const base = (): State => ({ ...initState(''), room: EXAMPLE_ROOM, screen: 'layout' });
 
@@ -40,6 +40,23 @@ describe('입력 검증 (PRD 4.2)', () => {
     expect(win({ offset: 300 })['win.w1.offset']).toBe(MSG.outside);
     expect(win({ wall: 'bottom', offset: 100, width: 60 })['win.w1.offset']).toBe(MSG.doorWindow);
     expect(win({ wall: 'bottom', offset: 120, width: 60 })).toEqual({});
+  });
+
+  it('창틀 높이는 비워 둘 수 있고, 넣으면 0~300', () => {
+    const win = (sill: number | null) =>
+      validateRoom({ ...EXAMPLE_ROOM, windows: [{ ...EXAMPLE_ROOM.windows[0], sill }] });
+    expect(win(null)).toEqual({});
+    expect(win(0)).toEqual({});
+    expect(win(301)['win.w1.sill']).toBe(MSG.sill);
+    expect(win(-1)['win.w1.sill']).toBe(MSG.sill);
+  });
+
+  it('가구 높이는 비워 둘 수 있고, 넣으면 10~300', () => {
+    expect(heightError(null)).toBeNull();
+    expect(heightError(NaN)).toBeNull();
+    expect(heightError(45)).toBeNull();
+    expect(heightError(5)).toBe(MSG.height);
+    expect(heightError(301)).toBe(MSG.height);
   });
 });
 
@@ -91,8 +108,8 @@ describe('reducer', () => {
 
 describe('공유 링크 (PRD 4.7)', () => {
   const furniture = [
-    { id: 'f1', name: '침대', x: 0, y: 100, w: 110, h: 200 },
-    { id: 'f2', name: '책상', x: 170, y: 150, w: 120, h: 60 },
+    { id: 'f1', name: '침대', x: 0, y: 100, w: 110, h: 200, ht: 45 },
+    { id: 'f2', name: '책상', x: 170, y: 150, w: 120, h: 60, ht: null },
   ];
 
   it('인코딩 → 디코딩하면 같은 방과 배치', () => {
@@ -111,16 +128,41 @@ describe('공유 링크 (PRD 4.7)', () => {
       y: -1000,
       w: 400,
       h: 400,
+      ht: 300,
     }));
     const full: Room = {
       ...EXAMPLE_ROOM,
       w: 1000,
       h: 1000,
-      windows: [0, 1, 2, 3].map((i) => ({ id: `w${i + 1}`, wall: 'top' as const, offset: 200 + i * 200, width: 100 })),
+      windows: [0, 1, 2, 3].map((i) => ({
+        id: `w${i + 1}`,
+        wall: 'top' as const,
+        offset: 200 + i * 200,
+        width: 100,
+        kind: 'casement' as const,
+        sill: 300,
+      })),
     };
     const url = `https://room-layout-check.vercel.app/#${encodeState(full, many)}`;
     expect(url.length).toBeLessThan(2000);
     expect(decodeHash(url.slice(url.indexOf('#')))).not.toBeNull();
+  });
+
+  it('창문 종류가 링크에 담기고, 종류가 없는 예전 링크는 미닫이로 읽는다', () => {
+    const room: Room = { ...EXAMPLE_ROOM, windows: [{ ...EXAMPLE_ROOM.windows[0], kind: 'casement' }] };
+    expect(decodeHash('#' + encodeState(room, []))!.room.windows[0].kind).toBe('casement');
+
+    const legacy = { r: [320, 400], d: [1, 40, 80, 0], ws: [[3, 140, 120]], f: [['bed', 0, 100, 110, 200]] };
+    const s = btoa(JSON.stringify(legacy)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const back = decodeHash(`#v=1&s=${s}`)!;
+    expect(back.room.windows[0]).toMatchObject({ kind: 'sliding', sill: null });
+    expect(back.furniture[0].ht).toBeNull();
+  });
+
+  it('높이가 범위를 벗어난 링크는 열지 않는다', () => {
+    expect(decodeHash('#' + encodeState(EXAMPLE_ROOM, [{ ...furniture[0], ht: 999 }]))).toBeNull();
+    const badSill = { ...EXAMPLE_ROOM, windows: [{ ...EXAMPLE_ROOM.windows[0], sill: 500 }] };
+    expect(decodeHash('#' + encodeState(badSill, []))).toBeNull();
   });
 
   it('형식이 틀리거나 값이 범위를 벗어나면 null', () => {
