@@ -25,7 +25,7 @@ export function openDepthError(n: number): string | null {
 }
 
 /** 비워 둘 수 있는 높이 값. null·undefined·NaN 은 '모름'. */
-export const isUnknown = (n: number | null | undefined): n is null | undefined => n == null || Number.isNaN(n);
+const isUnknown =(n: number | null | undefined): n is null | undefined => n == null || Number.isNaN(n);
 
 export function sillError(n: number | null | undefined): string | null {
   if (isUnknown(n)) return null;

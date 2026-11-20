@@ -6,7 +6,6 @@ interface Props {
   value: number;
   onChange: (n: number) => void;
   error?: string | null;
-  suffix?: string;
   placeholder?: string;
   /** 칸 아래 도움말 (오류가 없을 때) */
   hint?: string;
@@ -16,7 +15,7 @@ const parse = (s: string) => (s.trim() === '' ? NaN : Math.round(Number(s)));
 const show = (n: number) => (Number.isNaN(n) ? '' : String(n));
 
 /** 숫자 입력 칸. 오류는 칸 아래에 보여 주되, 빈칸 오류는 칸을 떠난 뒤에만 보인다. */
-export function NumberField({ id, label, value, onChange, error, suffix = 'cm', placeholder, hint }: Props) {
+export function NumberField({ id, label, value, onChange, error, placeholder, hint }: Props) {
   const [touched, setTouched] = useState(false);
   const visible = error && (touched || !Number.isNaN(value));
   return (
@@ -35,7 +34,7 @@ export function NumberField({ id, label, value, onChange, error, suffix = 'cm', 
           onChange={(e) => onChange(parse(e.target.value))}
           onBlur={() => setTouched(true)}
         />
-        {suffix && <span className="field-suffix">{suffix}</span>}
+        <span className="field-suffix">cm</span>
       </div>
       {visible ? (
         <p id={`${id}-err`} className="field-error" role="alert">

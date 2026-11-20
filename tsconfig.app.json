@@ -14,8 +14,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true
+    "verbatimModuleSyntax": true
   },
   "include": ["src", "tests/unit"]
 }

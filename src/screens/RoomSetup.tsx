@@ -133,7 +133,7 @@ export function RoomSetup() {
                   </button>
                 </div>
                 <div className="field">
-                  <span className="field-label" id={`win-${win.id}-wall-label`}>
+                  <span className="field-label">
                     창문이 있는 벽
                   </span>
                   <div className="segmented" role="group" aria-label={`창문 ${i + 1} 벽`}>
@@ -145,7 +145,7 @@ export function RoomSetup() {
                   </div>
                 </div>
                 <div className="field">
-                  <span className="field-label" id={`win-${win.id}-kind-label`}>
+                  <span className="field-label">
                     창문 종류
                   </span>
                   <div className="segmented" role="group" aria-label={`창문 ${i + 1} 종류`}>

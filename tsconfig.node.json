@@ -10,8 +10,7 @@
     "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true
+    "verbatimModuleSyntax": true
   },
   "include": ["vite.config.ts", "playwright.config.ts", "tests/e2e"]
 }

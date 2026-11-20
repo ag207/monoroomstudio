@@ -112,7 +112,7 @@ function OpeningFields({ f }: { f: Furniture }) {
       </div>
       {open && (
         <>
-          <span className="field-label" id="open-side-label">
+          <span className="field-label">
             앞면 방향 (평면도 기준)
           </span>
           <div className="segmented" role="group" aria-label="앞면 방향">
