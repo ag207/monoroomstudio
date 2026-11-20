@@ -75,8 +75,12 @@ export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'setRoom':
       return { ...state, room: action.room };
-    case 'loadExample':
-      return { ...state, room: EXAMPLE_ROOM, linkError: false };
+    case 'loadExample': {
+      // 예시 창문에도 새 id를 줘야, 이어서 추가하는 창문과 id가 겹치지 않는다
+      let nextId = state.nextId;
+      const windows = EXAMPLE_ROOM.windows.map((w) => ({ ...w, id: `w${nextId++}` }));
+      return { ...state, room: { ...EXAMPLE_ROOM, windows }, nextId, linkError: false };
+    }
     case 'addWindow': {
       if (state.room.windows.length >= LIMITS.windowsMax) return state;
       const win = { id: `w${state.nextId}`, wall: 'top' as const, offset: NaN, width: NaN, kind: 'sliding' as const, sill: null };

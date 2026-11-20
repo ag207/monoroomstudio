@@ -7,6 +7,11 @@ import { encodeState } from '../share/link';
 import { downloadPng } from '../share/png';
 import s from './ShareDialog.module.css';
 
+function selectAll(el: HTMLInputElement) {
+  el.select();
+  requestAnimationFrame(() => el.setSelectionRange(0, el.value.length));
+}
+
 export function ShareDialog({ result, onClose }: { result: Evaluation; onClose: () => void }) {
   const { state } = useApp();
   const { room, furniture } = state;
@@ -41,7 +46,10 @@ export function ShareDialog({ result, onClose }: { result: Evaluation; onClose: 
       await navigator.clipboard.writeText(url);
       setStatus('링크를 복사했어요.');
     } catch {
-      linkRef.current?.select();
+      if (linkRef.current) {
+        linkRef.current.focus();
+        selectAll(linkRef.current);
+      }
       setStatus('자동 복사가 안 돼요. 선택된 링크를 직접 복사해 주세요 (Ctrl+C).');
     }
   };
@@ -104,7 +112,15 @@ export function ShareDialog({ result, onClose }: { result: Evaluation; onClose: 
           <div className="field">
             <label htmlFor="share-link">공유 링크</label>
             <div className={s.linkRow}>
-              <input id="share-link" ref={linkRef} readOnly value={url} onFocus={(e) => e.target.select()} />
+              {/* Safari는 클릭 처리 뒤에 선택을 풀어 버려서, 다음 프레임에 전체 선택한다 */}
+              <input
+                id="share-link"
+                ref={linkRef}
+                readOnly
+                value={url}
+                onFocus={(e) => selectAll(e.currentTarget)}
+                onClick={(e) => selectAll(e.currentTarget)}
+              />
               <button type="button" className="btn btn-utility" onClick={copy}>
                 링크 복사
               </button>

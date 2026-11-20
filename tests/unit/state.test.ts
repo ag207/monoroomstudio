@@ -95,6 +95,15 @@ describe('reducer', () => {
     expect(s.furniture[0].open?.side).toBe('top');
   });
 
+  it('예시를 불러온 뒤 추가한 창문은 예시 창문과 id가 다르다 (QA S1-40)', () => {
+    let s = reducer(initState(''), { type: 'loadExample' });
+    s = reducer(s, { type: 'addWindow' });
+    const ids = s.room.windows.map((w) => w.id);
+    expect(new Set(ids).size).toBe(2);
+    s = reducer(s, { type: 'removeWindow', id: ids[0] });
+    expect(s.room.windows.map((w) => w.id)).toEqual([ids[1]]);
+  });
+
   it('가구는 20개까지', () => {
     let s = base();
     for (let i = 0; i < 25; i++) s = reducer(s, { type: 'add', name: '수납장', w: 20, h: 20 });
@@ -173,6 +182,20 @@ describe('공유 링크 (PRD 4.7)', () => {
     const back = decodeHash(`#v=1&s=${s}`)!;
     expect(back.room.windows[0]).toMatchObject({ kind: 'sliding', sill: null });
     expect(back.furniture[0].ht).toBeNull();
+  });
+
+  it('개수·겹침·위치·열림 코드가 틀린 링크는 열지 않는다 (QA L-18~L-23)', () => {
+    const raw = (o: object) =>
+      '#v=1&s=' + btoa(JSON.stringify({ r: [320, 400], d: [1, 40, 80, 0], ws: [], f: [], ...o })).replace(/=+$/, '');
+    const box = (x = 0) => ['box', x, 0, 50, 50];
+    expect(decodeHash(raw({ f: Array.from({ length: 21 }, () => box()) }))).toBeNull();
+    expect(decodeHash(raw({ ws: [0, 1, 2, 3, 4].map((i) => [0, i * 60, 40, 0, null]) }))).toBeNull();
+    expect(decodeHash(raw({ ws: [[1, 100, 60, 0, null]] }))).toBeNull(); // 문(40~120)과 겹침
+    expect(decodeHash(raw({ f: [box(2001)] }))).toBeNull();
+    expect(decodeHash(raw({ f: [box(2000)] }))).not.toBeNull();
+    expect(decodeHash(raw({ f: [[...box(), null, 12, 30]] }))).toBeNull();
+    expect(decodeHash(raw({ f: [[...box(), null, -1, 30]] }))).toBeNull();
+    expect(decodeHash(raw({ f: [[...box(), null, 1]] }))).toBeNull(); // 7칸
   });
 
   it('문·서랍 깊이가 범위를 벗어난 링크는 열지 않는다', () => {
