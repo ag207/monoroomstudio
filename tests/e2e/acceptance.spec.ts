@@ -223,6 +223,18 @@ test.describe('화면 2 가구 배치와 판정', () => {
     await expect(page.locator('[data-front-zone]')).toHaveCount(0);
   });
 
+  test('배치 추천: 겹친 가구를 문제없이 다시 놓고, 되돌릴 수 있음', async ({ page }) => {
+    await startWithExample(page);
+    for (const n of ['침대', '책상', '옷장', '수납장']) await addPreset(page, n);
+    await expect(page.getByTestId('verdict-counts')).not.toContainText('문제 0');
+    const before = await block(page, '침대').getAttribute('aria-label');
+    await page.getByRole('button', { name: '배치 추천받기' }).click();
+    await expect(page.getByTestId('verdict-counts')).toContainText('문제 0');
+    await page.getByRole('button', { name: '되돌리기' }).click();
+    await expect(block(page, '침대')).toHaveAttribute('aria-label', before!);
+    await expect(page.getByRole('button', { name: '되돌리기' })).toHaveCount(0);
+  });
+
   test('F-209: 화살표 10cm, Shift+화살표 1cm', async ({ page }) => {
     await startPlainRoom(page);
     await addPreset(page, '수납장');

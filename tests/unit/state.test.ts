@@ -104,6 +104,19 @@ describe('reducer', () => {
     expect(s.room.windows.map((w) => w.id)).toEqual([ids[1]]);
   });
 
+  it('배치 추천과 되돌리기, 다른 편집을 하면 되돌리기 사라짐', () => {
+    let s = reducer(base(), { type: 'add', name: '침대', w: 110, h: 200 });
+    s = reducer(s, { type: 'add', name: '책상', w: 120, h: 60 });
+    const before = s.furniture;
+    s = reducer(s, { type: 'arrange' });
+    expect(s.furniture).not.toEqual(before);
+    expect(s.beforeArrange).toBe(before);
+    s = reducer(s, { type: 'select', id: s.furniture[0].id });
+    expect(s.beforeArrange).toBe(before); // 선택만 바꾸면 유지
+    expect(reducer(s, { type: 'undoArrange' }).furniture).toBe(before);
+    expect(reducer(s, { type: 'nudge', id: s.furniture[0].id, dx: 10, dy: 0 }).beforeArrange).toBeNull();
+  });
+
   it('가구는 20개까지', () => {
     let s = base();
     for (let i = 0; i < 25; i++) s = reducer(s, { type: 'add', name: '수납장', w: 20, h: 20 });

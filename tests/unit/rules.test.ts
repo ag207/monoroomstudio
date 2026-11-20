@@ -3,6 +3,7 @@ import { EXAMPLE_ROOM } from '../../src/domain/constants';
 import type { Furniture, Room } from '../../src/domain/types';
 import { withWa } from '../../src/domain/text';
 import { evaluate } from '../../src/rules/evaluate';
+import { recommendLayout } from '../../src/rules/arrange';
 import { freeAreaPct } from '../../src/rules/area';
 import { doorSquare, overlapArea } from '../../src/rules/geom';
 
@@ -227,6 +228,36 @@ describe('R7 문·서랍 열림 공간', () => {
     const slide = { ...drawer, open: { kind: 'slide' as const, side: 'bottom' as const, depth: 35 } };
     const r2 = evaluate(noWindow, [slide, f('b', '책상', 0, 60, 120, 60)]);
     expect(r2.verdicts.d.reasons.some((x) => x.rule === 'R7')).toBe(false);
+  });
+});
+
+describe('배치 추천', () => {
+  const pile: Furniture[] = [
+    f('bed', '침대', 100, 100, 110, 200),
+    f('desk', '책상', 100, 100, 120, 60),
+    { ...f('ward', '옷장', 100, 100, 100, 60), ht: 200, open: { kind: 'swing', side: 'bottom', depth: 50 } },
+    { ...f('cab', '수납장', 100, 100, 80, 40), ht: 80, open: { kind: 'drawer', side: 'bottom', depth: 35 } },
+  ];
+
+  it('한데 겹쳐 놓은 기본 가구 4개를 문제없이 다시 놓는다', () => {
+    const before = evaluate(room, pile).counts.problem;
+    const out = recommendLayout(room, pile);
+    expect(before).toBe(4);
+    expect(evaluate(room, out).counts.problem).toBe(0);
+    // 순서·이름·면적은 그대로 (회전만 허용)
+    expect(out.map((o) => [o.id, o.name, o.w * o.h])).toEqual(pile.map((p) => [p.id, p.name, p.w * p.h]));
+  });
+
+  it('가구 20개도 2초 안에 끝난다', () => {
+    const many = Array.from({ length: 20 }, (_, i) => f(`f${i}`, '상자', 0, 0, 40, 40));
+    const t = performance.now();
+    recommendLayout(room, many);
+    expect(performance.now() - t).toBeLessThan(2000);
+  });
+
+  it('방보다 큰 가구가 있어도 멈추지 않는다', () => {
+    const out = recommendLayout(room, [f('x', '큰장', 0, 0, 400, 400)]);
+    expect(out).toHaveLength(1);
   });
 });
 

@@ -241,6 +241,26 @@ export function Layout() {
             </div>
             {full && <p className="muted small">가구는 {LIMITS.furnitureCountMax}개까지 놓을 수 있어요.</p>}
           </section>
+          <section className="card" aria-labelledby="arrange-title">
+            <h2 id="arrange-title">배치 추천</h2>
+            <p className="muted small">놓은 가구를 문·통로·창문 규칙에 맞게 다시 놓아 봐요. 가구 크기는 그대로, 방향만 바뀔 수 있어요.</p>
+            <button
+              type="button"
+              className="btn btn-utility"
+              disabled={furniture.length === 0}
+              onClick={() => dispatch({ type: 'arrange' })}
+            >
+              배치 추천받기
+            </button>
+            {state.beforeArrange && (
+              <p className="small" role="status">
+                추천 배치를 적용했어요.{' '}
+                <button type="button" className="btn-link" onClick={() => dispatch({ type: 'undoArrange' })}>
+                  되돌리기
+                </button>
+              </p>
+            )}
+          </section>
           {selected ? (
             <SelectedCard key={selected.id} f={selected} />
           ) : (

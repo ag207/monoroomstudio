@@ -1,5 +1,6 @@
 import { EMPTY_ROOM, EXAMPLE_ROOM, LIMITS } from '../domain/constants';
 import type { FrontOpening, Furniture, Room } from '../domain/types';
+import { recommendLayout } from '../rules/arrange';
 import { overlapArea, ROTATE_SIDE } from '../rules/geom';
 import { decodeHash } from '../share/link';
 import { validateRoom } from './validate';
@@ -13,6 +14,8 @@ export interface State {
   selectedId: string | null;
   linkError: boolean;
   nextId: number;
+  /** 배치 추천 직전의 가구 배치. 되돌리기용, 다른 편집을 하면 지운다. */
+  beforeArrange?: Furniture[] | null;
 }
 
 export type Action =
@@ -30,6 +33,8 @@ export type Action =
   | { type: 'rotate'; id: string }
   | { type: 'remove'; id: string }
   | { type: 'select'; id: string | null }
+  | { type: 'arrange' }
+  | { type: 'undoArrange' }
   | { type: 'dismissLinkError' };
 
 export const isRoomValid = (room: Room) => Object.keys(validateRoom(room)).length === 0;
@@ -72,7 +77,19 @@ function update(state: State, id: string, fn: (f: Furniture) => Furniture): Stat
 }
 
 export function reducer(state: State, action: Action): State {
+  const next = apply(state, action);
+  // 추천 뒤에 다른 편집을 하면 되돌리기 기준이 낡으므로 지운다 (선택만 바꾼 경우는 유지)
+  const keep = action.type === 'arrange' || action.type === 'select';
+  return keep || !next.beforeArrange ? next : { ...next, beforeArrange: null };
+}
+
+function apply(state: State, action: Action): State {
   switch (action.type) {
+    case 'arrange':
+      if (state.furniture.length === 0) return state;
+      return { ...state, beforeArrange: state.furniture, furniture: recommendLayout(state.room, state.furniture) };
+    case 'undoArrange':
+      return state.beforeArrange ? { ...state, furniture: state.beforeArrange } : state;
     case 'setRoom':
       return { ...state, room: action.room };
     case 'loadExample': {
