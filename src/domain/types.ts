@@ -45,12 +45,25 @@ export interface Furniture extends Rect {
   name: string;
   /** 가구 높이(바닥에서 윗면까지). 평면의 h(세로)와 다르다. 비우면(null) 모름. */
   ht?: number | null;
+  /** 앞면 문·서랍. 없으면 null. */
+  open?: FrontOpening | null;
+}
+
+/** 가구 앞면 열림 방식: 여닫이 문, 미닫이 문(열 공간 필요 없음), 서랍 */
+export type OpenKind = 'swing' | 'slide' | 'drawer';
+
+export interface FrontOpening {
+  kind: OpenKind;
+  /** 앞면이 향하는 쪽 (평면 기준) */
+  side: Wall;
+  /** 앞으로 필요한 깊이: 여닫이는 문짝 폭, 서랍은 서랍 길이 */
+  depth: number;
 }
 
 export type Level = 'problem' | 'warn' | 'pass';
 
-/** R6(여닫이 창 열림 범위)은 PRD에 없고 나중에 추가한 규칙 */
-export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'OK';
+/** R6(여닫이 창 열림 범위), R7(가구 문·서랍 열림 공간)은 PRD에 없고 나중에 추가한 규칙 */
+export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'OK';
 
 export interface Reason {
   rule: RuleId;

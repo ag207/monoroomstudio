@@ -17,6 +17,8 @@ export const PLAN_COLORS = {
   windowFill: 'rgba(98, 174, 240, 0.12)',
   door: '#0075de',
   doorFill: 'rgba(0, 117, 222, 0.08)',
+  openFill: 'rgba(97, 93, 89, 0.08)',
+  openBlockedFill: 'rgba(161, 27, 27, 0.10)',
 } as const;
 
 export const FONT_STACK =

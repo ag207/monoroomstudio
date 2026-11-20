@@ -1,4 +1,4 @@
-import type { Room } from './types';
+import type { FrontOpening, Room } from './types';
 
 export const LIMITS = {
   roomMin: 150,
@@ -14,6 +14,9 @@ export const LIMITS = {
   sillMax: 300,
   heightMin: 10,
   heightMax: 300,
+  openDepthMin: 10,
+  openDepthMax: 150,
+  drawerDefault: 40,
   aisleMin: 60,
   windowReach: 10,
   dragSnap: 10,
@@ -22,11 +25,14 @@ export const LIMITS = {
 
 export const PRESETS = [
   // ht: 가구 높이 기본값 (침대는 매트리스 윗면 기준)
-  { name: '침대', w: 110, h: 200, ht: 45 },
-  { name: '책상', w: 120, h: 60, ht: 73 },
-  { name: '옷장', w: 100, h: 60, ht: 200 },
-  { name: '수납장', w: 80, h: 40, ht: 80 },
-] as const;
+  // open: 앞면은 평면의 아래쪽. 옷장은 두 짝 여닫이(문짝 폭 = 가로의 절반), 수납장은 서랍
+  { name: '침대', w: 110, h: 200, ht: 45, open: null },
+  { name: '책상', w: 120, h: 60, ht: 73, open: null },
+  { name: '옷장', w: 100, h: 60, ht: 200, open: { kind: 'swing', side: 'bottom', depth: 50 } },
+  { name: '수납장', w: 80, h: 40, ht: 80, open: { kind: 'drawer', side: 'bottom', depth: 35 } },
+] as const satisfies readonly { name: string; w: number; h: number; ht: number; open: FrontOpening | null }[];
+
+export const OPEN_KIND_LABEL = { swing: '여닫이 문', slide: '미닫이 문', drawer: '서랍' } as const;
 
 export const EMPTY_ROOM: Room = {
   w: NaN,

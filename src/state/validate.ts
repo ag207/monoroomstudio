@@ -16,7 +16,13 @@ export const MSG = {
   name: '이름을 1~10자로 입력해 주세요',
   sill: '창틀 높이는 0~300cm 사이로 입력해 주세요',
   height: '높이는 10~300cm 사이로 입력해 주세요',
+  openDepth: '10~150cm 사이로 입력해 주세요',
 } as const;
+
+export function openDepthError(n: number): string | null {
+  if (!isInt(n)) return MSG.number;
+  return n >= LIMITS.openDepthMin && n <= LIMITS.openDepthMax ? null : MSG.openDepth;
+}
 
 /** 비워 둘 수 있는 높이 값. null·undefined·NaN 은 '모름'. */
 export const isUnknown = (n: number | null | undefined): n is null | undefined => n == null || Number.isNaN(n);

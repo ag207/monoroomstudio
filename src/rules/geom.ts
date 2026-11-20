@@ -53,6 +53,33 @@ export function heightVsSill(f: Pick<Furniture, 'ht'>, win: Pick<RoomWindow, 'si
   return f.ht <= win.sill ? 'below' : 'above';
 }
 
+/** 앞면 변의 길이 (앞면이 위·아래면 가로, 왼쪽·오른쪽이면 세로) */
+export function frontLength(f: Pick<Furniture, 'w' | 'h'>, side: Wall): number {
+  return side === 'top' || side === 'bottom' ? f.w : f.h;
+}
+
+/**
+ * 문·서랍을 열 때 필요한 앞쪽 공간. 앞면 변 전체 길이 × 필요한 깊이 직사각형으로 근사한다.
+ * 미닫이 문이나 열림 정보가 없으면 null.
+ */
+export function frontZone(f: Furniture): Rect | null {
+  const o = f.open;
+  if (!o || o.kind === 'slide' || !(o.depth > 0)) return null;
+  switch (o.side) {
+    case 'top':
+      return { x: f.x, y: f.y - o.depth, w: f.w, h: o.depth };
+    case 'bottom':
+      return { x: f.x, y: f.y + f.h, w: f.w, h: o.depth };
+    case 'left':
+      return { x: f.x - o.depth, y: f.y, w: o.depth, h: f.h };
+    case 'right':
+      return { x: f.x + f.w, y: f.y, w: o.depth, h: f.h };
+  }
+}
+
+/** 가구를 90° 돌릴 때 앞면 방향도 같이 돈다 (시계 방향) */
+export const ROTATE_SIDE: Record<Wall, Wall> = { top: 'right', right: 'bottom', bottom: 'left', left: 'top' };
+
 export function insideRoom(room: Pick<Room, 'w' | 'h'>, r: Rect): boolean {
   return r.x >= 0 && r.y >= 0 && r.x + r.w <= room.w && r.y + r.h <= room.h;
 }

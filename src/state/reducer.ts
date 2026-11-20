@@ -1,6 +1,6 @@
 import { EMPTY_ROOM, EXAMPLE_ROOM, LIMITS } from '../domain/constants';
-import type { Furniture, Room } from '../domain/types';
-import { overlapArea } from '../rules/geom';
+import type { FrontOpening, Furniture, Room } from '../domain/types';
+import { overlapArea, ROTATE_SIDE } from '../rules/geom';
 import { decodeHash } from '../share/link';
 import { validateRoom } from './validate';
 
@@ -21,8 +21,9 @@ export type Action =
   | { type: 'addWindow' }
   | { type: 'removeWindow'; id: string }
   | { type: 'goto'; screen: Screen }
-  | { type: 'add'; name: string; w: number; h: number; ht?: number | null }
+  | { type: 'add'; name: string; w: number; h: number; ht?: number | null; open?: FrontOpening | null }
   | { type: 'setHeight'; id: string; ht: number | null }
+  | { type: 'setOpen'; id: string; open: FrontOpening | null }
   | { type: 'move'; id: string; x: number; y: number }
   | { type: 'nudge'; id: string; dx: number; dy: number }
   | { type: 'resize'; id: string; w: number; h: number }
@@ -93,7 +94,7 @@ export function reducer(state: State, action: Action): State {
       if (state.furniture.length >= LIMITS.furnitureCountMax) return state;
       const id = `f${state.nextId}`;
       const pos = placeNew(state.room, state.furniture, action.w, action.h);
-      const f: Furniture = { id, name: action.name.trim(), w: action.w, h: action.h, ht: action.ht ?? null, ...pos };
+      const f: Furniture = { id, name: action.name.trim(), w: action.w, h: action.h, ht: action.ht ?? null, open: action.open ? { ...action.open } : null, ...pos };
       return { ...state, nextId: state.nextId + 1, furniture: [...state.furniture, f], selectedId: id };
     }
     case 'move':
@@ -104,10 +105,14 @@ export function reducer(state: State, action: Action): State {
       return update(state, action.id, (f) => ({ ...f, w: action.w, h: action.h }));
     case 'setHeight':
       return update(state, action.id, (f) => ({ ...f, ht: action.ht }));
+    case 'setOpen':
+      return update(state, action.id, (f) => ({ ...f, open: action.open }));
     case 'rotate':
       // 가로·세로를 바꾸고 중심점을 유지한다. 방 안쪽으로 보정하지 않는다 (PRD 4.1).
+      // 앞면 방향도 함께 시계 방향으로 돈다.
       return update(state, action.id, (f) => ({
         ...f,
+        open: f.open ? { ...f.open, side: ROTATE_SIDE[f.open.side] } : f.open,
         w: f.h,
         h: f.w,
         x: Math.round(f.x + (f.w - f.h) / 2),

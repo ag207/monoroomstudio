@@ -188,6 +188,48 @@ describe('R6 여닫이 창 열림 막힘', () => {
   });
 });
 
+describe('R7 문·서랍 열림 공간', () => {
+  // 옷장 100×60, 앞면 아래, 여닫이 문짝 50cm → 열림 공간 (x, y+60, 100, 50)
+  const wardrobe = (x: number, y: number): Furniture => ({
+    ...f('w', '옷장', x, y, 100, 60),
+    open: { kind: 'swing', side: 'bottom', depth: 50 },
+  });
+
+  it('앞쪽 공간이 비어 있으면 경고 없음', () => {
+    const r = evaluate(noWindow, [wardrobe(0, 0)]);
+    expect(r.verdicts.w.reasons.some((x) => x.rule === 'R7')).toBe(false);
+  });
+
+  it('다른 가구가 열림 공간에 있으면 둘 다 문제', () => {
+    const r = evaluate(noWindow, [wardrobe(0, 0), f('b', '침대', 0, 90, 110, 200)]);
+    expect(r.verdicts.w.level).toBe('problem');
+    expect(r.verdicts.w.reasons.find((x) => x.rule === 'R7')!.message).toBe('문이 열릴 공간이 부족해요 (침대에 막혀요)');
+    expect(r.verdicts.w.reasons.find((x) => x.rule === 'R7')!.fix).toContain('50cm를 비워 두세요');
+    expect(r.verdicts.b.reasons.find((x) => x.rule === 'R7')!.message).toBe('옷장 문 열림 범위를 막아요');
+  });
+
+  it('열림 공간 경계에 맞닿기만 하면 괜찮다', () => {
+    const r = evaluate(noWindow, [wardrobe(0, 0), f('b', '침대', 0, 110, 110, 200)]);
+    expect(r.verdicts.w.reasons.some((x) => x.rule === 'R7')).toBe(false);
+  });
+
+  it('앞면이 벽 쪽이면 벽에 막힘', () => {
+    const r = evaluate(noWindow, [wardrobe(0, 340)]); // 아래 벽에 붙음, 앞면도 아래
+    expect(r.verdicts.w.reasons.find((x) => x.rule === 'R7')!.message).toContain('벽에 막혀요');
+  });
+
+  it('서랍은 서랍 문구, 미닫이 문은 검사하지 않음', () => {
+    const drawer = { ...f('d', '수납장', 0, 0, 80, 40), open: { kind: 'drawer' as const, side: 'bottom' as const, depth: 35 } };
+    const r = evaluate(noWindow, [drawer, f('b', '책상', 0, 60, 120, 60)]);
+    expect(r.verdicts.d.reasons.find((x) => x.rule === 'R7')!.message).toBe('서랍을 끝까지 뺄 공간이 부족해요 (책상에 막혀요)');
+    expect(r.verdicts.b.reasons.find((x) => x.rule === 'R7')!.message).toBe('수납장 서랍 열림 범위를 막아요');
+
+    const slide = { ...drawer, open: { kind: 'slide' as const, side: 'bottom' as const, depth: 35 } };
+    const r2 = evaluate(noWindow, [slide, f('b', '책상', 0, 60, 120, 60)]);
+    expect(r2.verdicts.d.reasons.some((x) => x.rule === 'R7')).toBe(false);
+  });
+});
+
 describe('최종 판정', () => {
   it('아무 규칙에도 걸리지 않으면 통과', () => {
     const r = evaluate(noWindow, [f('a', '침대', 0, 0, 110, 200)]);

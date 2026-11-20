@@ -6,6 +6,7 @@ import { checkDoor } from './r3-door';
 import { findAisleGaps } from './r4-aisle';
 import { checkWindow } from './r5-window';
 import { checkCasement } from './r6-casement';
+import { checkFrontOpenings } from './r7-front';
 import { freeAreaPct } from './area';
 
 const RANK: Record<Level, number> = { pass: 0, warn: 1, problem: 2 };
@@ -24,6 +25,9 @@ export function evaluate(room: Room, furniture: Furniture[]): Evaluation {
       checkCasement(room, f),
     ].filter((r): r is Reason => r !== null);
   }
+
+  const front = checkFrontOpenings(room, furniture);
+  for (const [id, list] of Object.entries(front)) reasons[id].push(...list);
 
   const byId = new Map(furniture.map((f) => [f.id, f]));
   const gaps = findAisleGaps(room, furniture);

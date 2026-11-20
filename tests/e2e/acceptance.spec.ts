@@ -162,6 +162,67 @@ test.describe('화면 2 가구 배치와 판정', () => {
     await expect(page.locator('[data-furniture]')).toHaveCount(2);
   });
 
+  test('평면도에서 방향 바꾸기: ↻ 버튼과 R키', async ({ page }) => {
+    await startPlainRoom(page);
+    await addPreset(page, '침대'); // 110×200
+    await page.getByRole('button', { name: '침대 90° 회전' }).click();
+    await expect(block(page, '침대')).toHaveAttribute('aria-label', /200×110cm/);
+    await expect(page.locator('#sel-w')).toHaveValue('200');
+
+    await addPreset(page, '책상'); // 다른 가구도 같은 방식으로 돈다
+    await block(page, '책상').focus();
+    await page.keyboard.press('r');
+    await expect(block(page, '책상')).toHaveAttribute('aria-label', /60×120cm/);
+    await page.keyboard.press('R');
+    await expect(block(page, '책상')).toHaveAttribute('aria-label', /120×60cm/);
+    // 회전 버튼은 저장 팝업·PNG에는 그리지 않는다
+    await page.getByRole('button', { name: '배치도 저장·공유' }).click();
+    await expect(page.getByRole('dialog').locator('[data-rotate-handle]')).toHaveCount(0);
+  });
+
+  test('평면도에서 삭제: × 버튼과 Delete 키', async ({ page }) => {
+    await startPlainRoom(page);
+    await addPreset(page, '침대');
+    await addPreset(page, '책상');
+    await addPreset(page, '옷장');
+    await expect(page.locator('[data-furniture]')).toHaveCount(3);
+
+    // 선택한 가구(마지막에 추가한 옷장)만 × 버튼이 있다
+    await expect(page.locator('[data-remove-handle]')).toHaveCount(1);
+    await page.getByRole('button', { name: '옷장 삭제' }).click();
+    await expect(page.locator('[data-furniture]')).toHaveCount(2);
+    await expect(block(page, '옷장')).toHaveCount(0);
+    await expect(page.locator('[data-remove-handle]')).toHaveCount(0); // 선택 해제됨
+
+    await block(page, '침대').focus();
+    await page.keyboard.press('Delete');
+    await expect(page.locator('[data-furniture]')).toHaveCount(1);
+    await expect(card(page, '책상')).toBeVisible();
+  });
+
+  test('문·서랍: 옷장 앞을 막으면 문제, 서랍으로 바꾸면 서랍 길이로 판정', async ({ page }) => {
+    await startPlainRoom(page);
+    await addPreset(page, '옷장'); // 기본: 여닫이, 앞면 아래, 문짝 50
+    const kinds = page.getByRole('group', { name: '열림 방식' });
+    await expect(kinds.getByRole('button', { name: '여닫이 문' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#sel-open-depth')).toHaveValue('50');
+    await placeSelected(page, 0, 0);
+    await expect(page.locator('[data-front-zone] path')).toHaveCount(2); // 두 짝 문
+
+    await addCustom(page, '소파', 150, 80);
+    await placeSelected(page, 0, 90); // 옷장 앞 30cm 지점 → 문짝 50cm에 걸림
+    await expect(card(page, '옷장')).toContainText('문이 열릴 공간이 부족해요 (소파에 막혀요)');
+    await expect(card(page, '소파')).toContainText('옷장 문 열림 범위를 막아요');
+
+    await selectByCard(page, '옷장');
+    await kinds.getByRole('button', { name: '서랍' }).click();
+    await page.locator('#sel-open-depth').fill('25'); // 서랍 25cm면 소파(30cm 앞)에 안 걸림
+    await expect(card(page, '옷장')).not.toContainText('공간이 부족해요');
+
+    await kinds.getByRole('button', { name: '없음' }).click();
+    await expect(page.locator('[data-front-zone]')).toHaveCount(0);
+  });
+
   test('F-209: 화살표 10cm, Shift+화살표 1cm', async ({ page }) => {
     await startPlainRoom(page);
     await addPreset(page, '수납장');

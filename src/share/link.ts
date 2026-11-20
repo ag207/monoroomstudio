@@ -1,6 +1,13 @@
 import { LIMITS } from '../domain/constants';
-import type { Furniture, Hinge, Room, Wall, WindowKind } from '../domain/types';
-import { furnitureSizeError, heightError, isInt, nameError, validateRoom } from '../state/validate';
+import type { FrontOpening, Furniture, Hinge, OpenKind, Room, Wall, WindowKind } from '../domain/types';
+import {
+  furnitureSizeError,
+  heightError,
+  isInt,
+  nameError,
+  openDepthError,
+  validateRoom,
+} from '../state/validate';
 
 // 공유 링크: JSON → UTF-8 → base64url, URL 해시에 `v=1&s=...` 로 담는다 (PRD 4.7).
 
@@ -14,9 +21,14 @@ type Compact = {
   d: [number, number, number, number];
   /** [벽, 위치, 폭, 종류]. 종류가 없는 예전 링크는 미닫이로 읽는다. */
   ws: (number | null)[][];
-  /** [이름, x, y, 가로, 세로, 높이] */
+  /** [이름, x, y, 가로, 세로, 높이, (열림 코드, 열림 깊이)] — 열림이 없으면 뒤 두 칸을 생략한다 */
   f: (string | number | null)[][];
 };
+
+const OPEN_KINDS: OpenKind[] = ['swing', 'slide', 'drawer'];
+
+/** 열림 방식과 앞면 방향을 숫자 하나로: 종류 × 4 + 방향 */
+const openCode = (o: FrontOpening) => OPEN_KINDS.indexOf(o.kind) * 4 + WALLS.indexOf(o.side);
 
 function toBase64Url(text: string): string {
   let bin = '';
@@ -36,7 +48,10 @@ export function encodeState(room: Room, furniture: Furniture[]): string {
     r: [room.w, room.h],
     d: [WALLS.indexOf(room.door.wall), room.door.offset, room.door.width, HINGES.indexOf(room.door.hinge)],
     ws: room.windows.map((w) => [WALLS.indexOf(w.wall), w.offset, w.width, KINDS.indexOf(w.kind), w.sill ?? null]),
-    f: furniture.map((f) => [f.name, f.x, f.y, f.w, f.h, f.ht ?? null]),
+    f: furniture.map((f) => {
+      const base = [f.name, f.x, f.y, f.w, f.h, f.ht ?? null];
+      return f.open ? [...base, openCode(f.open), f.open.depth] : base;
+    }),
   };
   return `v=${VERSION}&s=${toBase64Url(JSON.stringify(c))}`;
 }
@@ -82,15 +97,24 @@ export function decodeHash(hash: string): { room: Room; furniture: Furniture[] }
     if (Object.keys(validateRoom(room)).length) return null;
 
     const furniture: Furniture[] = c.f.map((f, i) => {
-      // [이름, x, y, 가로, 세로] 뒤에 높이(null 가능, 예전 링크엔 없음)
-      if (!Array.isArray(f) || f.length > 6 || typeof f[0] !== 'string' || !ints(f.slice(1, 5), 4))
+      // [이름, x, y, 가로, 세로] 뒤에 높이(null 가능), 열림 코드·깊이(없을 수 있음). 예전 링크엔 뒤 칸들이 없다.
+      if (!Array.isArray(f) || f.length > 8 || f.length === 7 || typeof f[0] !== 'string' || !ints(f.slice(1, 5), 4))
         throw new Error('furniture');
       const [name, x, y, w, h] = f as [string, number, number, number, number];
       const ht = optionalInt(f[5]);
       if (nameError(name) || furnitureSizeError(w) || furnitureSizeError(h) || heightError(ht))
         throw new Error('furniture');
       if (Math.abs(x) > 2 * LIMITS.roomMax || Math.abs(y) > 2 * LIMITS.roomMax) throw new Error('furniture');
-      return { id: `f${i + 1}`, name: name.trim(), x, y, w, h, ht };
+      let open: FrontOpening | null = null;
+      if (f.length === 8) {
+        const [code, depth] = f.slice(6);
+        if (!ints([code, depth], 2)) throw new Error('open');
+        const kind = OPEN_KINDS[Math.floor((code as number) / 4)];
+        const side = WALLS[(code as number) % 4];
+        if (!kind || !side || (code as number) < 0 || openDepthError(depth as number)) throw new Error('open');
+        open = { kind, side, depth: depth as number };
+      }
+      return { id: `f${i + 1}`, name: name.trim(), x, y, w, h, ht, open };
     });
     return { room, furniture };
   } catch {

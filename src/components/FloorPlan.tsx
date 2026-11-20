@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
-import { LIMITS } from '../domain/constants';
+import { LIMITS, OPEN_KIND_LABEL, WALL_LABEL } from '../domain/constants';
 import type { Evaluation, Furniture, Room, Verdict, Wall } from '../domain/types';
+import { frontLength, frontZone } from '../rules/geom';
 import { formatPct, LEVEL_LABEL, LEVEL_SYMBOL } from '../domain/text';
 import { FONT_STACK, PLAN_COLORS, VERDICT_COLORS } from '../styles/colors';
 
@@ -21,6 +22,8 @@ export interface FloorPlanProps {
   onMove?: (id: string, x: number, y: number) => void;
   onNudge?: (id: string, dx: number, dy: number) => void;
   onRemove?: (id: string) => void;
+  /** 주면 선택한 가구에 ↻ 회전 버튼이 생기고 R키로도 돈다 */
+  onRotate?: (id: string) => void;
 }
 
 const NS = 'non-scaling-stroke' as const;
@@ -58,6 +61,7 @@ export function FloorPlan(props: FloorPlanProps) {
   const pad = fs * 3;
   const legendH = showLegend ? fs * 3 : 0;
   const localRef = useRef<SVGSVGElement | null>(null);
+  const selected = furniture.find((f) => f.id === selectedId);
 
   const setRef = (el: SVGSVGElement | null) => {
     localRef.current = el;
@@ -165,6 +169,15 @@ export function FloorPlan(props: FloorPlanProps) {
       {room.door && <DoorMark room={room} door={room.door} />}
 
       {furniture.map((f) => (
+        <FrontZone
+          key={`open-${f.id}`}
+          f={f}
+          fs={fs}
+          blocked={!!result?.verdicts[f.id]?.reasons.some((r) => r.rule === 'R7' && r.message.includes('공간'))}
+        />
+      ))}
+
+      {furniture.map((f) => (
         <Block
           key={f.id}
           f={f}
@@ -177,8 +190,19 @@ export function FloorPlan(props: FloorPlanProps) {
           onMove={props.onMove}
           onNudge={props.onNudge}
           onRemove={props.onRemove}
+          onRotate={props.onRotate}
         />
       ))}
+
+      {interactive && selected && (
+        <SelectionButtons
+          f={selected}
+          fs={fs}
+          bounds={{ x1: -pad, y1: -pad, x2: room.w + pad, y2: room.h + pad }}
+          onRotate={props.onRotate}
+          onRemove={props.onRemove}
+        />
+      )}
 
       {/* 통로 표시선은 가구 위에 그려 거리 글자가 가려지지 않게 한다 */}
       {result?.gaps.map((g, i) => {
@@ -233,6 +257,200 @@ export function FloorPlan(props: FloorPlanProps) {
   );
 }
 
+type Bounds = { x1: number; y1: number; x2: number; y2: number };
+
+/**
+ * 선택한 가구 모서리 바깥의 동그란 버튼 (↻ 회전, × 삭제).
+ * 가구 블록과 형제 요소로 둬서, 누를 때 블록 끌기가 시작되지 않게 한다.
+ * bounds(그림 영역) 안으로 위치를 맞춰, 가구가 방 밖에 있어도 버튼은 보이게 한다.
+ */
+function CornerButton({
+  x,
+  y,
+  fs,
+  bounds,
+  color,
+  glyph,
+  label,
+  tip,
+  data,
+  onActivate,
+}: {
+  x: number;
+  y: number;
+  fs: number;
+  bounds: Bounds;
+  color: string;
+  glyph: string;
+  label: string;
+  tip: string;
+  data: Record<string, string>;
+  onActivate: () => void;
+}) {
+  const r = fs * 0.95;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  const cx = clamp(x, bounds.x1 + r, bounds.x2 - r);
+  const cy = clamp(y, bounds.y1 + r, bounds.y2 - r);
+  return (
+    <g
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      {...data}
+      style={{ cursor: 'pointer' }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onActivate();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
+    >
+      <title>{tip}</title>
+      <circle cx={cx} cy={cy} r={r} fill={color} stroke="#fff" strokeWidth={2} vectorEffect={NS} />
+      <text
+        x={cx}
+        y={cy + r * 0.38}
+        fontSize={r * 1.15}
+        fontWeight={700}
+        textAnchor="middle"
+        fill="#fff"
+        pointerEvents="none"
+      >
+        {glyph}
+      </text>
+    </g>
+  );
+}
+
+/** 선택한 가구 위쪽 가운데에 나란히 놓는 ×(삭제, 왼쪽)·↻(회전, 오른쪽) 버튼 */
+function SelectionButtons({
+  f,
+  fs,
+  bounds,
+  onRotate,
+  onRemove,
+}: {
+  f: Furniture;
+  fs: number;
+  bounds: Bounds;
+  onRotate?: (id: string) => void;
+  onRemove?: (id: string) => void;
+}) {
+  const r = fs * 0.95;
+  const both = Boolean(onRemove && onRotate);
+  const half = both ? r * 1.25 : 0; // 두 버튼 중심이 가운데에서 떨어진 거리 (사이 간격 약 0.5r)
+  // 가운데를 그림 영역 안으로 맞춰, 가구가 가장자리에 있어도 두 버튼이 겹치거나 잘리지 않게 한다
+  const mid = Math.min(Math.max(f.x + f.w / 2, bounds.x1 + r + half), bounds.x2 - r - half);
+  const y = f.y - r * 1.4; // 가구 윗변 바로 위
+  return (
+    <>
+      {onRemove && (
+        <CornerButton
+          x={mid - half}
+          y={y}
+          fs={fs}
+          bounds={bounds}
+          color={VERDICT_COLORS.problem.fg}
+          glyph="×"
+          label={`${f.name} 삭제`}
+          tip="삭제 (Delete)"
+          data={{ 'data-remove-handle': f.id }}
+          onActivate={() => onRemove(f.id)}
+        />
+      )}
+      {onRotate && (
+        <CornerButton
+          x={mid + half}
+          y={y}
+          fs={fs}
+          bounds={bounds}
+          color={PLAN_COLORS.door}
+          glyph="↻"
+          label={`${f.name} 90° 회전`}
+          tip="90° 회전 (R)"
+          data={{ 'data-rotate-handle': f.id }}
+          onActivate={() => onRotate(f.id)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * 가구 앞면의 문·서랍 열림 공간 (R7). 여닫이는 문짝이 도는 부채꼴, 서랍은 빠져나오는 직사각형.
+ * 막혀 있으면 빨갛게 그린다.
+ */
+function FrontZone({ f, fs, blocked }: { f: Furniture; fs: number; blocked: boolean }) {
+  const zone = frontZone(f);
+  if (!zone || !f.open) return null;
+  const { side, depth, kind } = f.open;
+  const stroke = blocked ? VERDICT_COLORS.problem.fg : PLAN_COLORS.muted;
+  const fill = blocked ? PLAN_COLORS.openBlockedFill : PLAN_COLORS.openFill;
+
+  // 앞면 변의 두 끝(A→B)과 바깥쪽 방향 n
+  const edges: Record<Wall, [Pt, Pt, Pt]> = {
+    top: [[f.x, f.y], [f.x + f.w, f.y], [0, -1]],
+    bottom: [[f.x, f.y + f.h], [f.x + f.w, f.y + f.h], [0, 1]],
+    left: [[f.x, f.y], [f.x, f.y + f.h], [-1, 0]],
+    right: [[f.x + f.w, f.y], [f.x + f.w, f.y + f.h], [1, 0]],
+  };
+  const [A, B, n] = edges[side];
+  const len = frontLength(f, side);
+  const along: Pt = [(B[0] - A[0]) / len, (B[1] - A[1]) / len];
+  const toward = (P: Pt, dir: number, d: number): Pt => [P[0] + along[0] * dir * d, P[1] + along[1] * dir * d];
+
+  let leaves: string[] = [];
+  if (kind === 'swing') {
+    if (depth * 2 <= len + 1) {
+      // 두 짝: 양 끝 경첩에서 가운데 쪽으로
+      leaves = [swing(A, toward(A, 1, depth), n, depth).path, swing(B, toward(B, -1, depth), n, depth).path];
+    } else {
+      const r = Math.min(depth, len);
+      leaves = [swing(A, toward(A, 1, r), n, r).path];
+    }
+  }
+  const tfs = Math.max(6, Math.min(fs * 0.7, depth / 2.2, (side === 'top' || side === 'bottom' ? f.w : f.h) / 4));
+
+  return (
+    <g pointerEvents="none" data-front-zone={f.id} data-blocked={blocked || undefined}>
+      {kind === 'drawer' ? (
+        <rect
+          x={zone.x}
+          y={zone.y}
+          width={zone.w}
+          height={zone.h}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          strokeDasharray="4 3"
+          vectorEffect={NS}
+        />
+      ) : (
+        leaves.map((d, i) => (
+          <path key={i} d={d} fill={fill} stroke={stroke} strokeWidth={1} strokeDasharray="4 3" vectorEffect={NS} />
+        ))
+      )}
+      <text
+        x={zone.x + zone.w / 2}
+        y={zone.y + zone.h / 2 + tfs * 0.35}
+        fontSize={tfs}
+        textAnchor="middle"
+        fill={stroke}
+      >
+        {kind === 'drawer' ? '서랍' : '문'} {depth}
+      </text>
+    </g>
+  );
+}
+
 function DoorMark({ room, door }: { room: Pick<Room, 'w' | 'h'>; door: Room['door'] }) {
   const start = wallPoint(room, door.wall, door.offset);
   const end = wallPoint(room, door.wall, door.offset + door.width);
@@ -258,15 +476,18 @@ interface BlockProps {
   onMove?: (id: string, x: number, y: number) => void;
   onNudge?: (id: string, dx: number, dy: number) => void;
   onRemove?: (id: string) => void;
+  onRotate?: (id: string) => void;
 }
 
-function Block({ f, fs, verdict, selected, interactive, toCm, onSelect, onMove, onNudge, onRemove }: BlockProps) {
+function Block(props: BlockProps) {
+  const { f, fs, verdict, selected, interactive, toCm, onSelect, onMove, onNudge, onRemove, onRotate } = props;
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
   const level = verdict?.level ?? 'pass';
   const c = VERDICT_COLORS[level];
   const tfs = Math.max(6, Math.min(fs, f.w / 5, f.h / 2.6));
   const inflate = fs * 0.35;
-  const label = `${f.name} ${f.w}×${f.h}cm${f.ht != null ? `, 높이 ${f.ht}cm` : ''}, 위치 ${f.x}, ${f.y}, 판정 ${LEVEL_LABEL[level]}`;
+  const openText = f.open ? `, ${OPEN_KIND_LABEL[f.open.kind]} 앞면 ${WALL_LABEL[f.open.side]}` : '';
+  const label = `${f.name} ${f.w}×${f.h}cm${f.ht != null ? `, 높이 ${f.ht}cm` : ''}${openText}, 위치 ${f.x}, ${f.y}, 판정 ${LEVEL_LABEL[level]}`;
 
   const onPointerDown = (e: PointerEvent<SVGGElement>) => {
     if (!interactive) return;
@@ -301,6 +522,10 @@ function Block({ f, fs, verdict, selected, interactive, toCm, onSelect, onMove, 
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       onRemove?.(f.id);
+    } else if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // e.code 로 보면 한글 입력 상태(ㄱ)에서도 R 자리 키로 돈다
+      e.preventDefault();
+      onRotate?.(f.id);
     } else if (e.key === 'Escape') {
       onSelect?.(null);
     }

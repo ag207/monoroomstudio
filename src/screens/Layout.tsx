@@ -2,11 +2,12 @@ import { useCallback, useState } from 'react';
 import { Badge, Legend } from '../components/Common';
 import { FloorPlan } from '../components/FloorPlan';
 import { DraftNumberField, NumberField } from '../components/NumberField';
-import { LIMITS, PRESETS } from '../domain/constants';
-import type { Furniture } from '../domain/types';
+import { LIMITS, OPEN_KIND_LABEL, PRESETS, WALL_LABEL } from '../domain/constants';
+import type { FrontOpening, Furniture, OpenKind, Wall } from '../domain/types';
 import { formatPct } from '../domain/text';
+import { frontLength } from '../rules/geom';
 import { useApp } from '../state/AppContext';
-import { furnitureSizeError, heightError, nameError } from '../state/validate';
+import { furnitureSizeError, heightError, nameError, openDepthError } from '../state/validate';
 import { ShareDialog } from './ShareDialog';
 import s from './Layout.module.css';
 
@@ -69,6 +70,76 @@ function CustomForm({ disabled }: { disabled: boolean }) {
   );
 }
 
+const SIDES: Wall[] = ['top', 'bottom', 'left', 'right'];
+const OPEN_KINDS: OpenKind[] = ['swing', 'slide', 'drawer'];
+
+/** 앞면 문·서랍 옵션: 열림 방식, 앞면 방향, 필요한 깊이 (R7 판정에 쓰임) */
+function OpeningFields({ f }: { f: Furniture }) {
+  const { dispatch } = useApp();
+  const open = f.open ?? null;
+  const set = useCallback(
+    (next: FrontOpening | null) => dispatch({ type: 'setOpen', id: f.id, open: next }),
+    [dispatch, f.id],
+  );
+  const setDepth = useCallback((depth: number) => open && set({ ...open, depth }), [open, set]);
+
+  const choose = (kind: OpenKind | null) => {
+    if (!kind) return set(null);
+    const side = open?.side ?? 'bottom';
+    // 여닫이 기본값: 두 짝 문으로 보고 문짝 폭 = 앞면 길이의 절반, 서랍 기본 40cm
+    const half = Math.ceil(frontLength(f, side) / 2);
+    const depth =
+      kind === 'swing'
+        ? Math.min(Math.max(half, LIMITS.openDepthMin), LIMITS.openDepthMax)
+        : kind === 'drawer'
+          ? LIMITS.drawerDefault
+          : (open?.depth ?? LIMITS.drawerDefault);
+    set({ kind, side, depth });
+  };
+
+  return (
+    <fieldset className={s.opening}>
+      <legend className="field-label">문·서랍 (열 때 필요한 앞쪽 공간)</legend>
+      <div className="segmented" role="group" aria-label="열림 방식">
+        <button type="button" aria-pressed={!open} onClick={() => choose(null)}>
+          없음
+        </button>
+        {OPEN_KINDS.map((k) => (
+          <button key={k} type="button" aria-pressed={open?.kind === k} onClick={() => choose(k)}>
+            {OPEN_KIND_LABEL[k]}
+          </button>
+        ))}
+      </div>
+      {open && (
+        <>
+          <span className="field-label" id="open-side-label">
+            앞면 방향 (평면도 기준)
+          </span>
+          <div className="segmented" role="group" aria-label="앞면 방향">
+            {SIDES.map((sd) => (
+              <button key={sd} type="button" aria-pressed={open.side === sd} onClick={() => set({ ...open, side: sd })}>
+                {WALL_LABEL[sd]}
+              </button>
+            ))}
+          </div>
+          {open.kind === 'slide' ? (
+            <p className="muted small">미닫이 문은 옆으로 밀어 열어서 앞쪽 공간을 따로 검사하지 않아요.</p>
+          ) : (
+            <DraftNumberField
+              id="sel-open-depth"
+              label={open.kind === 'swing' ? '문짝 폭 (문이 열릴 때 필요한 깊이)' : '서랍 길이 (끝까지 뺄 때 필요한 깊이)'}
+              committed={open.depth}
+              validate={openDepthError}
+              onCommit={setDepth}
+              hint="평면도에 점선으로 표시된 이 공간이 벽이나 다른 가구에 막히면 '문제'로 알려 드려요."
+            />
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+}
+
 function SelectedCard({ f }: { f: Furniture }) {
   const { dispatch, result } = useApp();
   const level = result?.verdicts[f.id]?.level ?? 'pass';
@@ -103,6 +174,7 @@ function SelectedCard({ f }: { f: Furniture }) {
         placeholder="모르면 비워 두세요"
         hint="창틀보다 낮으면 창문 앞에 두어도 경고하지 않아요."
       />
+      <OpeningFields f={f} />
       <div className={s.row}>
         <button type="button" className="btn btn-utility" onClick={() => dispatch({ type: 'rotate', id: f.id })}>
           ↻ 90° 회전
@@ -111,7 +183,10 @@ function SelectedCard({ f }: { f: Furniture }) {
           삭제
         </button>
       </div>
-      <p className="muted small">평면도에서 끌어 옮기거나, 가구를 선택한 뒤 화살표 키로 10cm씩(Shift: 1cm) 옮길 수 있어요.</p>
+      <p className="muted small">
+        평면도에서 끌어 옮기거나, 가구를 선택한 뒤 화살표 키로 10cm씩(Shift: 1cm) 옮길 수 있어요. 방향은 평면도의 ↻
+        버튼이나 R키로 바꾸고, 평면도의 × 버튼이나 Delete 키로 지울 수 있어요.
+      </p>
     </section>
   );
 }
@@ -128,6 +203,7 @@ export function Layout() {
   const onMove = useCallback((id: string, x: number, y: number) => dispatch({ type: 'move', id, x, y }), [dispatch]);
   const onNudge = useCallback((id: string, dx: number, dy: number) => dispatch({ type: 'nudge', id, dx, dy }), [dispatch]);
   const onRemove = useCallback((id: string) => dispatch({ type: 'remove', id }), [dispatch]);
+  const onRotate = useCallback((id: string) => dispatch({ type: 'rotate', id }), [dispatch]);
 
   return (
     <main className={s.main}>
@@ -142,7 +218,7 @@ export function Layout() {
                   type="button"
                   className={`btn btn-utility ${s.preset}`}
                   disabled={full}
-                  onClick={() => dispatch({ type: 'add', name: p.name, w: p.w, h: p.h, ht: p.ht })}
+                  onClick={() => dispatch({ type: 'add', name: p.name, w: p.w, h: p.h, ht: p.ht, open: p.open })}
                 >
                   <strong>{p.name}</strong>
                   <span className="muted small">
@@ -186,11 +262,12 @@ export function Layout() {
               result={result}
               selectedId={selectedId}
               interactive
-              label="가구 배치 평면도. 가구를 선택하고 화살표 키로 옮길 수 있어요."
+              label="가구 배치 평면도. 가구를 선택하고 화살표 키로 옮기고 R키로 회전할 수 있어요."
               onSelect={onSelect}
               onMove={onMove}
               onNudge={onNudge}
               onRemove={onRemove}
+              onRotate={onRotate}
             />
           </div>
           <p className={s.free}>

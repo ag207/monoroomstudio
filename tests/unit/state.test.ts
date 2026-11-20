@@ -80,6 +80,21 @@ describe('reducer', () => {
     expect(after.y + after.h / 2).toBe(before.y + before.h / 2);
   });
 
+  it('회전하면 앞면 방향도 시계 방향으로 돈다', () => {
+    let s = reducer(base(), {
+      type: 'add',
+      name: '옷장',
+      w: 100,
+      h: 60,
+      open: { kind: 'swing', side: 'bottom', depth: 50 },
+    });
+    const id = s.furniture[0].id;
+    s = reducer(s, { type: 'rotate', id });
+    expect(s.furniture[0].open?.side).toBe('left');
+    s = reducer(s, { type: 'rotate', id });
+    expect(s.furniture[0].open?.side).toBe('top');
+  });
+
   it('가구는 20개까지', () => {
     let s = base();
     for (let i = 0; i < 25; i++) s = reducer(s, { type: 'add', name: '수납장', w: 20, h: 20 });
@@ -108,8 +123,8 @@ describe('reducer', () => {
 
 describe('공유 링크 (PRD 4.7)', () => {
   const furniture = [
-    { id: 'f1', name: '침대', x: 0, y: 100, w: 110, h: 200, ht: 45 },
-    { id: 'f2', name: '책상', x: 170, y: 150, w: 120, h: 60, ht: null },
+    { id: 'f1', name: '옷장', x: 0, y: 100, w: 100, h: 60, ht: 200, open: { kind: 'swing' as const, side: 'right' as const, depth: 50 } },
+    { id: 'f2', name: '책상', x: 170, y: 150, w: 120, h: 60, ht: null, open: null },
   ];
 
   it('인코딩 → 디코딩하면 같은 방과 배치', () => {
@@ -129,6 +144,7 @@ describe('공유 링크 (PRD 4.7)', () => {
       w: 400,
       h: 400,
       ht: 300,
+      open: { kind: 'drawer' as const, side: 'left' as const, depth: 150 },
     }));
     const full: Room = {
       ...EXAMPLE_ROOM,
@@ -157,6 +173,11 @@ describe('공유 링크 (PRD 4.7)', () => {
     const back = decodeHash(`#v=1&s=${s}`)!;
     expect(back.room.windows[0]).toMatchObject({ kind: 'sliding', sill: null });
     expect(back.furniture[0].ht).toBeNull();
+  });
+
+  it('문·서랍 깊이가 범위를 벗어난 링크는 열지 않는다', () => {
+    const bad = { ...furniture[0], open: { kind: 'drawer' as const, side: 'bottom' as const, depth: 500 } };
+    expect(decodeHash('#' + encodeState(EXAMPLE_ROOM, [bad]))).toBeNull();
   });
 
   it('높이가 범위를 벗어난 링크는 열지 않는다', () => {
